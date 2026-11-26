@@ -1,0 +1,384 @@
+openapi: 3.0.3
+info:
+  title: LostCampus API
+  version: 1.0.0
+  description: |
+    API REST de LostCampus. Todas las peticiones pasan por el **api-gateway**, que valida
+    el JWT de Supabase y reenvía a cada servicio.
+
+    Autenticación: `Authorization: Bearer <access_token de Supabase>`.
+servers:
+  - url: http://localhost:4000/api/v1
+    description: Desarrollo
+  - url: https://lostcampus-gateway.onrender.com/api/v1
+    description: Producción (Render)
+security:
+  - bearerAuth: []
+tags:
+  - name: Público
+  - name: Reportes
+    description: items-service
+  - name: Coincidencias
+    description: matching-service
+  - name: Reclamos
+    description: claims-service
+  - name: Notificaciones
+    description: notify-service
+  - name: Administración
+
+paths:
+  /health:
+    get:
+      tags: [Público]
+      security: []
+      summary: Estado del gateway
+      responses:
+        '200': { description: OK }
+  /stats/public:
+    get:
+      tags: [Público]
+      security: []
+      summary: Contadores para la página de inicio
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reportes: { type: integer }
+                  devueltos: { type: integer }
+
+  /categories:
+    get:
+      tags: [Reportes]
+      summary: Lista de categorías
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '#/components/schemas/Category' } }
+
+  /items:
+    get:
+      tags: [Reportes]
+      summary: Lista de reportes con filtros y paginación
+      parameters:
+        - { name: tipo, in: query, schema: { type: string, enum: [perdido, encontrado] } }
+        - { name: category_id, in: query, schema: { type: integer } }
+        - { name: zona, in: query, schema: { type: string } }
+        - { name: estado, in: query, schema: { type: string, enum: [activo, en_proceso, devuelto, cerrado], default: activo } }
+        - { name: q, in: query, description: Búsqueda en título y descripción, schema: { type: string, maxLength: 60 } }
+        - { name: page, in: query, schema: { type: integer, default: 1 } }
+        - { name: limit, in: query, schema: { type: integer, default: 24, maximum: 100 } }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: array, items: { $ref: '#/components/schemas/Item' } }
+                  total: { type: integer }
+                  page: { type: integer }
+                  limit: { type: integer }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    post:
+      tags: [Reportes]
+      summary: Crear un reporte (dispara el cálculo de coincidencias)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/NewItem' }
+      responses:
+        '201': { description: Creado, content: { application/json: { schema: { $ref: '#/components/schemas/Item' } } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+  /items/mine:
+    get:
+      tags: [Reportes]
+      summary: Reportes del usuario
+      responses:
+        '200': { description: OK }
+  /items/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      tags: [Reportes]
+      summary: Detalle de un reporte
+      responses:
+        '200': { description: OK }
+        '404': { description: No encontrado }
+    patch:
+      tags: [Reportes]
+      summary: Editar un reporte propio
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                titulo: { type: string }
+                descripcion: { type: string }
+                color: { type: string }
+                zona: { type: string }
+                en_resguardo: { type: boolean }
+                estado: { type: string, enum: [activo, cerrado] }
+      responses:
+        '200': { description: OK }
+    delete:
+      tags: [Reportes]
+      summary: Eliminar un reporte propio (o cualquiera si es admin)
+      responses:
+        '204': { description: Eliminado }
+        '403': { description: Prohibido }
+
+  /profile:
+    get:
+      tags: [Reportes]
+      summary: Perfil del usuario
+      responses:
+        '200': { description: OK }
+    patch:
+      tags: [Reportes]
+      summary: Editar nombre y carrera
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                nombre: { type: string }
+                carrera: { type: string }
+      responses:
+        '200': { description: OK }
+
+  /matches:
+    get:
+      tags: [Coincidencias]
+      summary: Coincidencias de un reporte propio
+      parameters:
+        - { name: item_id, in: query, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id: { type: string }
+                    score: { type: integer, minimum: 0, maximum: 100 }
+                    item: { $ref: '#/components/schemas/Item' }
+  /matches/run:
+    post:
+      tags: [Coincidencias]
+      summary: Recalcular coincidencias de un reporte propio
+      requestBody:
+        content:
+          application/json:
+            schema: { type: object, properties: { item_id: { type: string, format: uuid } } }
+      responses:
+        '200': { description: OK }
+  /matches/{id}:
+    patch:
+      tags: [Coincidencias]
+      summary: Descartar una coincidencia
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        content:
+          application/json:
+            schema: { type: object, properties: { estado: { type: string, enum: [descartado] } } }
+      responses:
+        '200': { description: OK }
+
+  /claims:
+    get:
+      tags: [Reclamos]
+      summary: Reclamos hechos y recibidos
+      responses:
+        '200': { description: OK }
+    post:
+      tags: [Reclamos]
+      summary: Reclamar un objeto encontrado respondiendo la pregunta de verificación
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [item_id, respuesta]
+              properties:
+                item_id: { type: string, format: uuid }
+                respuesta: { type: string, maxLength: 300 }
+      responses:
+        '201': { description: Creado }
+        '403': { description: Límite de intentos alcanzado }
+        '409': { description: El objeto ya está en proceso }
+  /claims/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      tags: [Reclamos]
+      summary: Detalle de un reclamo (solo participantes)
+      responses:
+        '200': { description: OK }
+    patch:
+      tags: [Reclamos]
+      summary: Aprobar, rechazar o cancelar un reclamo
+      requestBody:
+        content:
+          application/json:
+            schema: { type: object, properties: { accion: { type: string, enum: [aprobar, rechazar, cancelar] } } }
+      responses:
+        '200': { description: OK }
+  /claims/{id}/messages:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      tags: [Reclamos]
+      summary: Mensajes del chat
+      responses:
+        '200': { description: OK }
+    post:
+      tags: [Reclamos]
+      summary: Enviar mensaje
+      requestBody:
+        content:
+          application/json:
+            schema: { type: object, properties: { contenido: { type: string, maxLength: 1000 } } }
+      responses:
+        '201': { description: Creado }
+  /claims/{id}/qr:
+    get:
+      tags: [Reclamos]
+      summary: Generar el QR de entrega (JWT de un solo uso, 24 h)
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { type: object, properties: { token: { type: string }, expira_en_horas: { type: integer } } }
+  /claims/verify-qr:
+    post:
+      tags: [Reclamos]
+      summary: Validar el QR y cerrar la entrega (resguardo, admin o quien encontró)
+      requestBody:
+        content:
+          application/json:
+            schema: { type: object, properties: { token: { type: string } } }
+      responses:
+        '200': { description: Entregado }
+        '400': { description: QR inválido o expirado }
+        '409': { description: QR ya usado o reemplazado }
+
+  /notifications:
+    get:
+      tags: [Notificaciones]
+      summary: Últimas 30 notificaciones
+      responses:
+        '200': { description: OK }
+  /notifications/{id}/read:
+    patch:
+      tags: [Notificaciones]
+      summary: Marcar como leída
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200': { description: OK }
+  /notifications/read-all:
+    post:
+      tags: [Notificaciones]
+      summary: Marcar todas como leídas
+      responses:
+        '200': { description: OK }
+
+  /admin/stats:
+    get:
+      tags: [Administración]
+      summary: Estadísticas (admin y resguardo)
+      responses:
+        '200': { description: OK }
+        '403': { description: Prohibido }
+  /admin/items:
+    get:
+      tags: [Administración]
+      summary: Últimos 100 reportes (admin)
+      responses:
+        '200': { description: OK }
+  /admin/items/{id}/hide:
+    patch:
+      tags: [Administración]
+      summary: Ocultar un reporte (moderación)
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200': { description: OK }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  responses:
+    Unauthorized:
+      description: Sin sesión o token inválido
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    BadRequest:
+      description: Datos inválidos
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+  schemas:
+    Error:
+      type: object
+      properties:
+        error: { type: string }
+        details:
+          type: array
+          items: { type: object, properties: { campo: { type: string }, mensaje: { type: string } } }
+    Category:
+      type: object
+      properties:
+        id: { type: integer }
+        nombre: { type: string }
+        icono: { type: string }
+    NewItem:
+      type: object
+      required: [tipo, titulo, category_id, color, zona, fecha]
+      properties:
+        tipo: { type: string, enum: [perdido, encontrado] }
+        titulo: { type: string, minLength: 3, maxLength: 80 }
+        descripcion: { type: string, maxLength: 500 }
+        category_id: { type: integer }
+        color: { type: string, example: negro }
+        zona: { type: string, example: Biblioteca }
+        lat: { type: number }
+        lng: { type: number }
+        fecha: { type: string, format: date }
+        image_path: { type: string, description: '<user_id>/<uuid>.webp en el bucket item-images' }
+        en_resguardo: { type: boolean }
+        pregunta_verificacion: { type: string, description: Obligatoria si tipo = encontrado }
+    Item:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        tipo: { type: string }
+        titulo: { type: string }
+        descripcion: { type: string }
+        category_id: { type: integer }
+        color: { type: string }
+        zona: { type: string }
+        lat: { type: number, nullable: true }
+        lng: { type: number, nullable: true }
+        fecha: { type: string, format: date }
+        estado: { type: string, enum: [activo, en_proceso, devuelto, cerrado, oculto] }
+        image_url: { type: string, nullable: true, description: URL firmada (1 h) }
+        en_resguardo: { type: boolean }
+        created_at: { type: string, format: date-time }
