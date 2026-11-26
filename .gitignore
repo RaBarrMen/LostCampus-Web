@@ -1,0 +1,20 @@
+node_modules/
+.next/
+out/
+coverage/
+dist/
+*.log
+.DS_Store
+Thumbs.db
+
+# Variables de entorno: NUNCA se suben al repositorio
+.env
+.env.*
+!.env.example
+
+# Supabase local
+infra/supabase/.temp/
+.vscode/*
+!.vscode/extensions.json
+test-results/
+playwright-report/

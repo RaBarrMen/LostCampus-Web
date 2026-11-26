@@ -1,0 +1,32 @@
+{
+  "name": "lostcampus",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Plataforma web basada en servicios para objetos perdidos del Tecnológico de Celaya",
+  "license": "MIT",
+  "workspaces": [
+    "packages/*",
+    "services/*",
+    "web"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "concurrently -n gateway,items,matching,claims,notify,web -c blue,green,magenta,yellow,cyan,white \"npm run dev -w services/api-gateway\" \"npm run dev -w services/items-service\" \"npm run dev -w services/matching-service\" \"npm run dev -w services/claims-service\" \"npm run dev -w services/notify-service\" \"npm run dev -w web\"",
+    "dev:services": "concurrently -n gateway,items,matching,claims,notify \"npm run dev -w services/api-gateway\" \"npm run dev -w services/items-service\" \"npm run dev -w services/matching-service\" \"npm run dev -w services/claims-service\" \"npm run dev -w services/notify-service\"",
+    "dev:web": "npm run dev -w web",
+    "build:web": "npm run build -w web",
+    "test": "npm test --workspaces --if-present",
+    "audit": "npm audit --omit=dev --audit-level=high",
+    "test:db": "node --test \"tests/db/*.test.mjs\"",
+    "test:all": "npm test && npm run test:db",
+    "test:load": "k6 run tests/load/feed.k6.js",
+    "test:e2e": "playwright test -c tests/e2e/playwright.config.js"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.6.0",
+    "@playwright/test": "^1.65.1",
+    "concurrently": "^9.2.0"
+  }
+}
