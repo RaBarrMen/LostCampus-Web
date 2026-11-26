@@ -1,0 +1,19 @@
+{
+  "name": "matching-service",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Calcula coincidencias entre objetos perdidos y encontrados",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "test": "jest"
+  },
+  "dependencies": {
+    "@lostcampus/common": "*"
+  },
+  "devDependencies": {
+    "jest": "^30.5.0",
+    "supertest": "^7.3.0"
+  }
+}
