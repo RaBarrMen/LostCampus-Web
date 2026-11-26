@@ -1,0 +1,19 @@
+{
+  "name": "notify-service",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Notificaciones en la app (tiempo real) y por correo",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "test": "jest"
+  },
+  "dependencies": {
+    "@lostcampus/common": "*"
+  },
+  "devDependencies": {
+    "jest": "^30.5.0",
+    "supertest": "^7.3.0"
+  }
+}
