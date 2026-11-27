@@ -1,0 +1,151 @@
+# =====================================================================
+# Render Blueprint de LostCampus
+# En Render: New > Blueprint > conecta el repositorio de GitHub.
+# Render crea los 6 servicios y pide los valores marcados con sync: false.
+# Se despliega automáticamente cada vez que hay un push a "main".
+#
+# Las URLs entre servicios se llenan con las URLs públicas que Render asigna
+# (por ejemplo https://lostcampus-items.onrender.com). Los servicios internos
+# rechazan cualquier petición que no traiga INTERNAL_API_KEY, aunque sean públicos.
+# =====================================================================
+
+envVarGroups:
+  - name: lostcampus-shared
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: "22"
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: INTERNAL_API_KEY
+        generateValue: true
+      - key: METRICS_TOKEN
+        generateValue: true
+
+services:
+  # ---------- Frontend ----------
+  - type: web
+    name: lostcampus-web
+    runtime: node
+    plan: free
+    region: ohio
+    branch: main
+    buildCommand: npm ci --include-workspace-root=false -w web && npm run build -w web
+    startCommand: npm run start -w web
+    healthCheckPath: /
+    buildFilter:
+      paths: ["web/**", "package-lock.json"]
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: NEXT_TELEMETRY_DISABLED
+        value: "1"
+      - key: NEXT_PUBLIC_API_URL
+        sync: false # https://lostcampus-gateway.onrender.com
+      - key: NEXT_PUBLIC_SUPABASE_URL
+        sync: false
+      - key: NEXT_PUBLIC_SUPABASE_ANON_KEY
+        sync: false
+      - key: NEXT_PUBLIC_ALLOWED_DOMAINS
+        value: celaya.tecnm.mx
+
+  # ---------- API Gateway (único servicio que usa el navegador) ----------
+  - type: web
+    name: lostcampus-gateway
+    runtime: node
+    plan: free
+    region: ohio
+    branch: main
+    buildCommand: npm ci --include-workspace-root=false -w packages/common -w services/api-gateway
+    startCommand: npm run start -w services/api-gateway
+    healthCheckPath: /api/v1/health
+    buildFilter:
+      paths: ["services/api-gateway/**", "packages/**", "docs/openapi.yaml", "package-lock.json"]
+    envVars:
+      - fromGroup: lostcampus-shared
+      - key: CORS_ORIGINS
+        sync: false # https://lostcampus-web.onrender.com
+      - key: ITEMS_SERVICE_URL
+        sync: false # https://lostcampus-items.onrender.com
+      - key: MATCHING_SERVICE_URL
+        sync: false # https://lostcampus-matching.onrender.com
+      - key: CLAIMS_SERVICE_URL
+        sync: false # https://lostcampus-claims.onrender.com
+      - key: NOTIFY_SERVICE_URL
+        sync: false # https://lostcampus-notify.onrender.com
+
+  # ---------- Servicios internos (rechazan peticiones sin INTERNAL_API_KEY) ----------
+  - type: web
+    name: lostcampus-items
+    runtime: node
+    plan: free
+    region: ohio
+    branch: main
+    buildCommand: npm ci --include-workspace-root=false -w packages/common -w services/items-service
+    startCommand: npm run start -w services/items-service
+    healthCheckPath: /health
+    buildFilter:
+      paths: ["services/items-service/**", "packages/**", "package-lock.json"]
+    envVars:
+      - fromGroup: lostcampus-shared
+      - key: MATCHING_SERVICE_URL
+        sync: false # https://lostcampus-matching.onrender.com
+
+  - type: web
+    name: lostcampus-matching
+    runtime: node
+    plan: free
+    region: ohio
+    branch: main
+    buildCommand: npm ci --include-workspace-root=false -w packages/common -w services/matching-service
+    startCommand: npm run start -w services/matching-service
+    healthCheckPath: /health
+    buildFilter:
+      paths: ["services/matching-service/**", "packages/**", "package-lock.json"]
+    envVars:
+      - fromGroup: lostcampus-shared
+      - key: NOTIFY_SERVICE_URL
+        sync: false # https://lostcampus-notify.onrender.com
+
+  - type: web
+    name: lostcampus-claims
+    runtime: node
+    plan: free
+    region: ohio
+    branch: main
+    buildCommand: npm ci --include-workspace-root=false -w packages/common -w services/claims-service
+    startCommand: npm run start -w services/claims-service
+    healthCheckPath: /health
+    buildFilter:
+      paths: ["services/claims-service/**", "packages/**", "package-lock.json"]
+    envVars:
+      - fromGroup: lostcampus-shared
+      - key: QR_SECRET
+        generateValue: true
+      - key: NOTIFY_SERVICE_URL
+        sync: false # https://lostcampus-notify.onrender.com
+
+  - type: web
+    name: lostcampus-notify
+    runtime: node
+    plan: free
+    region: ohio
+    branch: main
+    buildCommand: npm ci --include-workspace-root=false -w packages/common -w services/notify-service
+    startCommand: npm run start -w services/notify-service
+    healthCheckPath: /health
+    buildFilter:
+      paths: ["services/notify-service/**", "packages/**", "package-lock.json"]
+    envVars:
+      - fromGroup: lostcampus-shared
+      - key: APP_URL
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: EMAIL_FROM
+        value: LostCampus <onboarding@resend.dev>
