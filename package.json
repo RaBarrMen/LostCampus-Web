@@ -27,6 +27,6 @@
   "devDependencies": {
     "@electric-sql/pglite": "^0.6.0",
     "@playwright/test": "^1.65.1",
-    "concurrently": "^9.2.0"
+    "concurrently": "^10.0.7"
   }
 }
