@@ -28,7 +28,11 @@ async function callService(baseUrl, path, { method = 'POST', body, user, request
 
 // Llamada "dispara y olvida": si el otro servicio falla no se rompe la petición original.
 function fireAndForget(log, ...args) {
-  callService(...args).catch((err) => log?.warn({ err: err.message }, 'Llamada a servicio falló'));
+  const p = callService(...args).catch((err) => log?.warn({ err: err.message }, 'Llamada a servicio falló'));
+  if (process.env.VERCEL) {
+    try {
+      require('@vercel/functions').waitUntil(p);
+    } catch {}
+  }
 }
-
 module.exports = { callService, fireAndForget };
