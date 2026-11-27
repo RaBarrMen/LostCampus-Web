@@ -6,8 +6,8 @@ import Link from 'next/link';
 import { MapContainer, Marker, Popup, Rectangle, TileLayer, useMapEvents } from 'react-leaflet';
 import { BOUNDS, CENTER, inCampus } from '@/lib/campus';
 
-const TILES = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
-const ATTRIBUTION = '&copy; OpenStreetMap &copy; CARTO';
+const TILES = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+const ATTRIBUTION = '&copy; OpenStreetMap contributors';
 const campusRect = [
   [BOUNDS.minLat, BOUNDS.minLng],
   [BOUNDS.maxLat, BOUNDS.maxLng],
