@@ -8,7 +8,7 @@ const csp = [
   "default-src 'self'",
   `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ''}`,
   "style-src 'self' 'unsafe-inline'",
-  `img-src 'self' data: blob: ${SUPABASE} https://*.basemaps.cartocdn.com`,
+  `img-src 'self' data: blob: ${SUPABASE} https://tile.openstreetmap.org`,
   "font-src 'self' data:",
   `connect-src 'self' ${API} ${SUPABASE} ${supabaseWs}`,
   "media-src 'self' blob:",
